@@ -9,8 +9,8 @@ func TestEngineFollowsRootAndOverride(t *testing.T) {
 		t.Fatal("SQLX_ROOT should stay on sqlite")
 	}
 	t.Setenv("SQLX_ROOT", "")
-	if Postgres() || !Object() {
-		t.Fatal("an unset root should back up to s3")
+	if !Postgres() || Object() {
+		t.Fatal("an unset root should use postgres")
 	}
 	t.Setenv("SQLX_ENGINE", "s3")
 	if !Object() || Postgres() {

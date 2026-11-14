@@ -40,7 +40,7 @@ func paint(text string, w io.Writer) string {
 }
 
 const helpText = `nebula
-cloud database and object storage for this laptop
+Postgres on the SSH host, and object storage for this laptop
 
 global actions:
   nebula help
@@ -49,7 +49,7 @@ global actions:
     print the installed version
 
 features:
-  keep application databases in memory and back them up as objects
+  talk to Postgres on the SSH host
   # sql <arguments>
   nebula sql help
   nebula sql create database app

@@ -1,8 +1,8 @@
 # nebula
 
-Nebula is the storage binary local tools share. One file, two features.
+Nebula is one binary with two features.
 
-`sql` keeps each application database in a runtime sqlite file and can publish that file as an object. `s3` stores, retrieves, copies, and deletes objects with `s3://` URIs. Both use one SSH host. Neither opens a public port.
+`sql` talks to Postgres on an SSH host. It does not hold application data. Each tool keeps its own in-memory sqlite. `s3` stores, retrieves, copies, and deletes objects with `s3://` URIs, and that is how those tools back the sqlite file up. Neither feature opens a public port.
 
 `sql` and `s3` on `PATH` are this same binary.
 
@@ -15,7 +15,7 @@ nebula s3 put ./today.txt s3://notes/today.txt
 nebula s3 get s3://notes/today.txt ./today.txt
 ```
 
-A set `SQLX_ROOT` keeps `sql` on a local sqlite directory. `SQLX_ENGINE=postgres` keeps the Postgres path. `SQLX_ENGINE=s3` forces object snapshots. `S3X_ROOT` keeps `s3` on a local directory and does not open SSH. `SQLX_PG_SSH` names the SSH host.
+With nothing else set, `sql` uses Postgres on the host named by `SQLX_PG_SSH`, or `del-vc2`. A set `SQLX_ROOT` keeps `sql` on a local sqlite directory. `SQLX_ENGINE` can force `postgres`, `sqlite`, or `s3`. `S3X_ROOT` keeps `s3` on a local directory and does not open SSH.
 
 ## Install
 
