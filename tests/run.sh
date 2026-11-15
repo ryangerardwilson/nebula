@@ -26,6 +26,17 @@ printf '%s\n' "$help" | grep -q 'commands:' && fail "help has a commands section
 s3_help=$("$bin" s3 help)
 printf '%s\n' "$s3_help" | grep -q 'nebula s3 make bucket notes' || fail "s3 help"
 printf '%s\n' "$s3_help" | grep -q 'commands:' && fail "s3 help has a commands section" || true
+printf '%s\n' "$help" | grep -q 'nebula run ./site' || fail "help missing run"
+printf '%s\n' "$help" | grep -q 'nebula tunnel list' || fail "help missing tunnel"
+(
+  d=$(mktemp -d)
+  cp "$bin" "$d/tunnel"
+  cp "$bin" "$d/run"
+  "$d/tunnel" help | grep -q 'nebula tunnel add notes on 8080' || exit 1
+  "$d/run" help | grep -q 'nebula run ./site' || exit 1
+  "$d/run" help | grep -q 'commands:' && exit 1 || true
+  rm -rf "$d"
+) || fail "argv0 feature help"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"; rm -f "$bin"' EXIT

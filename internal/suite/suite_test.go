@@ -18,6 +18,8 @@ func TestHelpNamesBothTools(t *testing.T) {
 	for _, want := range []string{
 		"nebula sql create database app",
 		"nebula s3 put ./today.txt s3://notes/today.txt",
+		"nebula run ./site",
+		"nebula tunnel list",
 		"features:",
 	} {
 		if !strings.Contains(text, want) {

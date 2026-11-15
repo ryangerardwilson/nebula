@@ -62,4 +62,15 @@ features:
   nebula s3 get s3://notes/today.txt ./today.txt
   nebula s3 list s3://notes
   nebula s3 delete s3://notes/today.txt
+
+  run a site on the SSH host
+  # run <directory> | run list | run logs <name> | run rollback <name>
+  nebula run ./site
+  nebula run list
+
+  publish a laptop port on a hostname
+  # tunnel add <name> on <port> | tunnel list | tunnel screen
+  nebula tunnel add notes on 8080
+  nebula tunnel list
+  nebula tunnel screen
 `

@@ -81,8 +81,10 @@ Do not edit canonical specs directly to smuggle in new behavior.
 
 Repository: `nebula` at `github.com/ryangerardwilson/nebula`.
 
-nebula is one Go binary. `sql` and `s3` are features of that binary, selected
-by subcommand or by argv0. There is no separate sqlx product. Env names
+nebula is one Go binary. `sql`, `s3`, `run`, and `tunnel` are features of that
+binary, selected by subcommand or by argv0. `tunnel` publishes laptop ports.
+`run` hosts a process on the SSH host and does not publish the laptop tunnel.
+There is no separate sqlx product. Env names
 `SQLX_*` and `S3X_*` stay. The runtime directory name is `sqlx`.
 
 Do not add this module to the home `go.work`. Test with `GOWORK=off go test ./...`

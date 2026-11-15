@@ -1,0 +1,328 @@
+// Package tunnel publishes ports on this laptop as subdomains of
+// ryangerardwilson.com through a named Cloudflare tunnel. It is the
+// app behind nebula tunnel. The route screen is nebula tunnel screen.
+package tunnel
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/ryangerardwilson/nebula/internal/suite"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/daemon"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/dns"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/secrets"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/session"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/store"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/tui"
+	"github.com/ryangerardwilson/nebula/tunnel/internal/xdg"
+)
+
+const Help = `nebula tunnel
+publish laptop ports as subdomains of ryangerardwilson.com
+
+global actions:
+  nebula tunnel help
+    show this help
+  nebula tunnel version
+    print the nebula version
+  nebula tunnel start
+    start the background service
+  nebula tunnel stop
+    stop the background service
+  nebula tunnel status
+    show the background service
+  nebula tunnel logs
+    follow the background service log
+  nebula tunnel run
+    run the background worker
+  nebula tunnel screen
+    open the route screen
+
+features:
+  add a subdomain and forward it to a local port
+  # add <name> on <port>
+  nebula tunnel add notes on 8080
+
+  show or remove a route
+  # list | remove <name>
+  nebula tunnel list
+  nebula tunnel remove notes
+
+notes:
+  A name is one label under ryangerardwilson.com, or @ for the apex.
+  It forwards to 127.0.0.1 on that port. The first saved list keeps
+  the apex on port 8080. Adding a name creates a proxied CNAME when
+  the name has no DNS yet; a name that points somewhere else is left
+  alone and not saved. Removing a route leaves DNS as it is.
+  Routes live in the sqlx database c3po. Credentials come from
+  the 1Password items CLOUDFLARE_TUNNEL_CREDENTIALS and
+  CLOUDFLARE_API_TOKEN in the Root vault, read with the service
+  account token in $OP_SERVICE_ACCOUNT_TOKEN_FILE
+  (default ~/.config/c3po/pass/service-account-token).
+  start, stop, status, and logs drive the user unit tunnel.service,
+  whose ExecStart is nebula tunnel run. run keeps cloudflared
+  connected and reconnects when the route list changes.
+  The route screen is nebula tunnel screen.
+
+exit: 0 ok, 1 error, 2 usage
+`
+
+// ScreenHelp is the help for nebula tunnel screen.
+const ScreenHelp = `nebula tunnel screen
+edit routes in the terminal
+
+  nebula tunnel screen
+    open the route screen
+  nebula tunnel screen help
+    show this help
+
+j and k move. a adds a route. d asks before removing the selected
+route. y confirms that removal and n cancels it. q quits.
+`
+
+// Run runs nebula tunnel. args are the words after tunnel.
+func Run(args []string, stdout, stderr io.Writer) int {
+	return newApp(stdout, stderr).run(args)
+}
+
+// Screen runs the route editor. The command is nebula tunnel screen.
+func Screen(stdout, stderr io.Writer) int {
+	return screenWith("", stdout, stderr)
+}
+
+// ScreenResume opens the route editor on a saved session.
+func ScreenResume(id string, stdout, stderr io.Writer) int {
+	return screenWith(id, stdout, stderr)
+}
+
+func screenWith(id string, stdout, stderr io.Writer) int {
+	sess, err := session.Open("tunnel", id)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return 1
+	}
+	defer sess.Close()
+	a := newApp(stdout, stderr)
+	a.session = sess
+	return a.open(nil)
+}
+
+// app holds the seams the commands use, so tests can replace credentials,
+// DNS, systemd, the route screen, and the worker.
+type app struct {
+	Out       io.Writer
+	Err       io.Writer
+	Home      string
+	TokenFile string
+	Load      func() (secrets.Tunnel, error)
+	Ensure    store.Ensure
+	Service   func(args ...string) error
+	Journal   func() error
+	Open      func(home string) error
+	Serve     func(ctx context.Context) error
+	session   *session.Session
+}
+
+func newApp(stdout, stderr io.Writer) *app {
+	home := os.Getenv("HOME")
+	tokenFile, err := xdg.PassToken()
+	if err != nil {
+		tokenFile = ""
+	}
+	a := &app{Out: stdout, Err: stderr, Home: home, TokenFile: tokenFile}
+	a.Load = func() (secrets.Tunnel, error) {
+		return secrets.Load(a.TokenFile)
+	}
+	a.Ensure = a.ensureDNS
+	a.Open = func(home string) error {
+		return tui.Run(home, a.Load, a.Ensure, a.session)
+	}
+	a.Serve = func(ctx context.Context) error {
+		return daemon.Run(ctx, daemon.Options{Home: a.Home, TokenFile: a.TokenFile, Stdout: a.Out, Stderr: a.Err})
+	}
+	return a
+}
+
+func (a *app) ensureDNS(ctx context.Context, zone, hostname, tunnelID string) error {
+	tunnel, err := a.Load()
+	if err != nil {
+		return err
+	}
+	client := &dns.Client{Token: tunnel.APIToken}
+	return client.Ensure(ctx, zone, hostname, tunnelID)
+}
+
+type command func(a *app, rest []string) int
+
+var commands = map[string]command{
+	"help":    (*app).help,
+	"screen":  (*app).screenCmd,
+	"-h":      (*app).help,
+	"--help":  (*app).help,
+	"version": (*app).version,
+	"list":    (*app).listCmd,
+	"add":     (*app).add,
+	"remove":  (*app).remove,
+	"start":   (*app).start,
+	"stop":    (*app).stop,
+	"status":  (*app).status,
+	"logs":    (*app).logs,
+	"run":     (*app).serve,
+}
+
+func (a *app) run(args []string) int {
+	a.fill()
+	cmd := "help"
+	if len(args) > 0 {
+		cmd = args[0]
+	}
+	rest := []string{}
+	if len(args) > 1 {
+		rest = args[1:]
+	}
+	if f, ok := commands[cmd]; ok {
+		return f(a, rest)
+	}
+	fmt.Fprint(a.Err, paint(Help, a.Err))
+	return 2
+}
+
+func (a *app) fill() {
+	if a.Out == nil {
+		a.Out = os.Stdout
+	}
+	if a.Err == nil {
+		a.Err = os.Stderr
+	}
+	if a.Home == "" {
+		a.Home = os.Getenv("HOME")
+	}
+}
+
+func (a *app) help(_ []string) int {
+	fmt.Fprint(a.Out, paint(Help, a.Out))
+	return 0
+}
+
+func (a *app) version(_ []string) int {
+	fmt.Fprintln(a.Out, suite.Version)
+	return 0
+}
+
+func (a *app) open(_ []string) int {
+	if a.Open == nil {
+		fmt.Fprintln(a.Err, "nebula tunnel screen is unavailable")
+		return 1
+	}
+	return a.report(a.Open(a.Home))
+}
+
+func (a *app) listCmd(_ []string) int {
+	return a.report(a.list())
+}
+
+func (a *app) add(rest []string) int {
+	if len(rest) != 3 || rest[1] != "on" {
+		fmt.Fprintln(a.Err, "usage: nebula tunnel add <name> on <port>")
+		return 2
+	}
+	_, host, err := store.Add(a.Home, rest[0], rest[2], a.Load, a.Ensure)
+	if err != nil {
+		return a.report(err)
+	}
+	fmt.Fprintf(a.Out, "added %s\n", host)
+	return 0
+}
+
+func (a *app) remove(rest []string) int {
+	if len(rest) != 1 {
+		fmt.Fprintln(a.Err, "usage: nebula tunnel remove <name>")
+		return 2
+	}
+	if _, err := store.Remove(a.Home, rest[0]); err != nil {
+		return a.report(err)
+	}
+	fmt.Fprintf(a.Out, "removed %s\n", rest[0])
+	return 0
+}
+
+func (a *app) serve(_ []string) int {
+	if a.Serve == nil {
+		fmt.Fprintln(a.Err, "tunnel run is unavailable")
+		return 1
+	}
+	ctx, stop := signalContext()
+	defer stop()
+	return a.report(a.Serve(ctx))
+}
+
+func (a *app) screenCmd(rest []string) int {
+	id, rest, err := session.TakeResume(rest)
+	if err != nil {
+		fmt.Fprint(a.Err, paint(ScreenHelp, a.Err))
+		return 2
+	}
+	if oneWord(rest, "help", "-h", "--help") {
+		fmt.Fprint(a.Out, paint(ScreenHelp, a.Out))
+		return 0
+	}
+	if oneWord(rest, "version") {
+		return a.version(nil)
+	}
+	if len(rest) != 0 {
+		fmt.Fprint(a.Err, paint(ScreenHelp, a.Err))
+		return 2
+	}
+	return a.openScreen(id)
+}
+
+func oneWord(rest []string, words ...string) bool {
+	if len(rest) != 1 {
+		return false
+	}
+	for _, word := range words {
+		if rest[0] == word {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *app) openScreen(id string) int {
+	sess, err := session.Open("tunnel", id)
+	if err != nil {
+		fmt.Fprintln(a.Err, err.Error())
+		return 1
+	}
+	defer sess.Close()
+	a.session = sess
+	return a.open(nil)
+}
+
+// report prints err and returns its exit code.
+func (a *app) report(err error) int {
+	if err != nil {
+		fmt.Fprintln(a.Err, err.Error())
+		return 1
+	}
+	return 0
+}
+
+// paint dims the help on a color terminal.
+func paint(text string, w io.Writer) string {
+	if os.Getenv("NO_COLOR") != "" {
+		return text
+	}
+	file, ok := w.(*os.File)
+	if !ok || !isTerminal(file) {
+		return text
+	}
+	return "\033[38;5;245m" + text + "\033[0m"
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}

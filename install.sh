@@ -18,6 +18,8 @@ install_from_source() {
   mv "$staged" "$dest/nebula"
   ln -sfn nebula "$dest/sql"
   ln -sfn nebula "$dest/s3"
+  ln -sfn nebula "$dest/run"
+  ln -sfn nebula "$dest/tunnel"
   cp "$checkout/sqlx-backup.service" "$unit_dir/sqlx-backup.service"
   cp "$checkout/sqlx-backup.timer" "$unit_dir/sqlx-backup.timer"
   systemctl --user daemon-reload
