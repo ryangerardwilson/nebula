@@ -29,17 +29,20 @@ printf '%s\n' "$s3_help" | grep -q 'commands:' && fail "s3 help has a commands s
 printf '%s\n' "$help" | grep -q 'nebula run ./site' || fail "help missing run"
 printf '%s\n' "$help" | grep -q 'nebula tunnel list' || fail "help missing tunnel"
 printf '%s\n' "$help" | grep -q 'nebula crypt list Root' || fail "help missing crypt"
-printf '%s\n' "$help" | grep -q 'nebula auth setup' || fail "help missing auth"
+printf '%s\n' "$help" | grep -q 'nebula auth' && fail "help still names auth" || true
+auth_code=0
+"$bin" auth >/dev/null 2>&1 || auth_code=$?
+[ "$auth_code" = 2 ] || fail "nebula auth exit $auth_code"
+grep -q 'ln -sfn nebula "$dest/auth"' install.sh && fail "install still links auth" || true
 (
   d=$(mktemp -d)
   cp "$bin" "$d/tunnel"
   cp "$bin" "$d/run"
   cp "$bin" "$d/crypt"
-  cp "$bin" "$d/auth"
   "$d/tunnel" help | grep -q 'nebula tunnel add notes on 8080' || exit 1
   "$d/run" help | grep -q 'nebula run ./site' || exit 1
   "$d/crypt" help | grep -q 'nebula crypt list Root' || exit 1
-  "$d/auth" help | grep -q 'nebula auth setup' || exit 1
+  "$d/run" help | grep -q 'OAuth callback' || exit 1
   "$d/crypt" help | grep -q 'commands:' && exit 1 || true
   "$d/run" help | grep -q 'commands:' && exit 1 || true
   rm -rf "$d"

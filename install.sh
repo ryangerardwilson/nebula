@@ -21,7 +21,9 @@ install_from_source() {
   ln -sfn nebula "$dest/run"
   ln -sfn nebula "$dest/tunnel"
   ln -sfn nebula "$dest/crypt"
-  ln -sfn nebula "$dest/auth"
+  if [ -L "$dest/auth" ] && [ "$(readlink "$dest/auth")" = nebula ]; then
+    rm -f "$dest/auth"
+  fi
   cp "$checkout/sqlx-backup.service" "$unit_dir/sqlx-backup.service"
   cp "$checkout/sqlx-backup.timer" "$unit_dir/sqlx-backup.timer"
   systemctl --user daemon-reload

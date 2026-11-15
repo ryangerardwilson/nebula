@@ -81,11 +81,11 @@ Do not edit canonical specs directly to smuggle in new behavior.
 
 Repository: `nebula` at `github.com/ryangerardwilson/nebula`.
 
-nebula is one Go binary. `sql`, `s3`, `run`, `tunnel`, `crypt`, and `auth` are
+nebula is one Go binary. `sql`, `s3`, `run`, `tunnel`, and `crypt` are
 features of that binary, selected by subcommand or by argv0. `tunnel` publishes
 laptop ports. `run` hosts a process on the SSH host and does not publish the
-laptop tunnel. `crypt` is the 1Password interface. `auth` reads the Root Google
-client through `crypt`. There is no crypt screen. `c3po tui pass` reaches
+laptop tunnel. The hostname `run` publishes is the site origin. `crypt` is the
+1Password interface. There is no crypt screen. `c3po tui pass` reaches
 1Password through `nebula crypt`.
 There is no separate sqlx product. Env names
 `SQLX_*` and `S3X_*` stay. The runtime directory name is `sqlx`.

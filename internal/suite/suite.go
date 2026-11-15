@@ -78,9 +78,4 @@ features:
   # crypt list <vault> | crypt get <vault> <name> | crypt vaults | crypt items <vault> | crypt copy <vault> <id>
   nebula crypt list Root
   nebula crypt get Root GOOGLE_OAUTH_CLIENT_ID
-
-  sign in with the shared Google client
-  # auth setup | auth add <name> redirect <url> | auth login <name>
-  nebula auth setup
-  nebula auth login notes
 `

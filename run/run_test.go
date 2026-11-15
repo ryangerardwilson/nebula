@@ -184,7 +184,7 @@ func TestHelpHasNoCommandsSection(t *testing.T) {
 	if code := runCLI(nil, &out, &errw, nil); code != 0 {
 		t.Fatal(code)
 	}
-	if strings.Contains(out.String(), "\ncommands:\n") || !strings.Contains(out.String(), "nebula run ./site") {
+	if strings.Contains(out.String(), "\ncommands:\n") || !strings.Contains(out.String(), "nebula run ./site") || !strings.Contains(out.String(), "OAuth callback") {
 		t.Fatalf("%s", out.String())
 	}
 	if code := runCLI([]string{"logs"}, &out, &errw, nil); code != 2 {

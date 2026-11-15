@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ryangerardwilson/nebula/auth"
 	"github.com/ryangerardwilson/nebula/command"
 	"github.com/ryangerardwilson/nebula/crypt"
 	"github.com/ryangerardwilson/nebula/internal/suite"
@@ -29,8 +28,6 @@ func dispatch(args []string) int {
 		return tunnel.Run(args[1:], os.Stdout, os.Stderr)
 	case "crypt":
 		return crypt.Run(args[1:], os.Stdout, os.Stderr)
-	case "auth":
-		return auth.Run(args[1:], os.Stdout, os.Stderr)
 	}
 	if len(args) < 2 {
 		return suite.Main(nil)
@@ -46,8 +43,6 @@ func dispatch(args []string) int {
 		return tunnel.Run(args[2:], os.Stdout, os.Stderr)
 	case "crypt":
 		return crypt.Run(args[2:], os.Stdout, os.Stderr)
-	case "auth":
-		return auth.Run(args[2:], os.Stdout, os.Stderr)
 	default:
 		return suite.Main(args[1:])
 	}

@@ -38,6 +38,8 @@ notes:
   and PORT on the SSH host. A new table stays on nebula sql.
   rollback moves the current release. It does not change the database.
   The ssh hostname on the host tunnel is left in place.
+  The published hostname is the site origin. An OAuth callback is a path
+  on that origin.
 
 exit: 0 ok, 1 error, 2 usage
 `

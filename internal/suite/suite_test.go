@@ -21,18 +21,23 @@ func TestHelpNamesBothTools(t *testing.T) {
 		"nebula run ./site",
 		"nebula tunnel list",
 		"nebula crypt list Root",
-		"nebula auth setup",
 		"features:",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %s\n%s", want, text)
 		}
 	}
+	if strings.Contains(text, "nebula auth") {
+		t.Fatal(text)
+	}
 	out.Reset()
 	if code := run([]string{"version"}, &out, &errw); code != 0 || strings.TrimSpace(out.String()) != Version {
 		t.Fatalf("%d %q", code, out.String())
 	}
 	if code := run([]string{"sql"}, &out, &errw); code != 2 {
+		t.Fatal(code)
+	}
+	if code := run([]string{"auth"}, &out, &errw); code != 2 {
 		t.Fatal(code)
 	}
 }
