@@ -109,8 +109,10 @@ func putSSH(ctx context.Context, local, bucket, key string) error {
 		return err
 	}
 	defer file.Close()
-	script := `cat > "$1" && chmod 600 "$1" && mv "$1" "$2"`
-	_, err = ssh(ctx, host, file, "bash", "-c", script, "bash", tmp, dest)
+	// The remote login shell receives this as one unquoted command.
+	// Paths are bucket and key characters, so they need no extra quotes.
+	script := "cat > " + tmp + " && chmod 600 " + tmp + " && mv " + tmp + " " + dest
+	_, err = ssh(ctx, host, file, script)
 	return err
 }
 
