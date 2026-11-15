@@ -2,8 +2,11 @@ schema: spec-driven
 
 context: |
   nebula is one Go binary. The command is nebula.
-  sql, s3, run, and tunnel are features of that binary, selected by
-  subcommand or by argv0.
+  sql, s3, run, tunnel, crypt, and auth are features of that binary,
+  selected by subcommand or by argv0.
+  crypt reads and writes 1Password items. auth signs in with one shared
+  Google client whose id and secret stay in 1Password. c3po tui pass
+  reaches 1Password through nebula crypt and does not call op.
   sql talks to Postgres on the SSH host. It does not hold application
   records. Each app keeps its own sqlite and backs that file up with s3.
   s3 stores objects with s3:// URIs.

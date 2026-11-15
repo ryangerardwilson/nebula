@@ -20,6 +20,8 @@ func TestHelpNamesBothTools(t *testing.T) {
 		"nebula s3 put ./today.txt s3://notes/today.txt",
 		"nebula run ./site",
 		"nebula tunnel list",
+		"nebula crypt list Root",
+		"nebula auth setup",
 		"features:",
 	} {
 		if !strings.Contains(text, want) {
