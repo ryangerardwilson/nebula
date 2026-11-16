@@ -4,7 +4,7 @@ context: |
   nebula is one Go binary. The command is nebula.
   sql, s3, run, tunnel, and crypt are features of that binary,
   selected by subcommand or by argv0.
-  crypt reads and writes 1Password items. c3po tui pass
+  crypt reads and writes 1Password items. r2d2 pass
   reaches 1Password through nebula crypt and does not call op.
   The hostname run publishes is the site origin. An OAuth callback is a
   path on that origin. run does not sign a user in.

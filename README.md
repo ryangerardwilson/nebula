@@ -4,7 +4,7 @@ Nebula is one binary. `sql` talks to Postgres on an SSH host. `s3` stores object
 
 `sql` does not hold application data. Each tool keeps its own in-memory sqlite and backs that file up with `s3`. `run` does not migrate a database. `tunnel` is the laptop connector, and the host connector stays separate. None of these features opens a public port on the host.
 
-`sql`, `s3`, `run`, `tunnel`, and `crypt` on `PATH` are this same binary. `crypt` uses the 1Password service account. `c3po pass` runs `nebula crypt`. `c3po tui pass` stays the item screen and reaches 1Password through `nebula crypt`.
+`sql`, `s3`, `run`, `tunnel`, and `crypt` on `PATH` are this same binary. `crypt` uses the 1Password service account. `c3po pass` runs `nebula crypt`. `r2d2 pass` stays the item screen and reaches 1Password through `nebula crypt`.
 
 ```
 nebula sql create database app

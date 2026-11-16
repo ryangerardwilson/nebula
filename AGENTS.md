@@ -85,7 +85,7 @@ nebula is one Go binary. `sql`, `s3`, `run`, `tunnel`, and `crypt` are
 features of that binary, selected by subcommand or by argv0. `tunnel` publishes
 laptop ports. `run` hosts a process on the SSH host and does not publish the
 laptop tunnel. The hostname `run` publishes is the site origin. `crypt` is the
-1Password interface. There is no crypt screen. `c3po tui pass` reaches
+1Password interface. There is no crypt screen. `r2d2 pass` reaches
 1Password through `nebula crypt`.
 There is no separate sqlx product. Env names
 `SQLX_*` and `S3X_*` stay. The runtime directory name is `sqlx`.
@@ -113,9 +113,9 @@ cannot silently overwrite a file.
   `--old-file <f>`, `--new-file <f>`, `--stdin` (quote the heredoc: `<<'EOF'`). Each patch prints the
   next hash. Relative paths start at the git root. Plain patch is byte-exact; `gofmt -w` is denied.
   To format or edit several files: `c3po ast apply --from-file <manifest.json|git diff>`.
-  A Go create, patch, symbol patch, or apply that adds a function at `max_cc` or above,
-  or raises one from below to `max_cc` or above, is refused and not written; functions
-  already at or above `max_cc` stay editable (default 30). `c3po ast gap` lists them.
+  Go, TypeScript, and Python (`.go` `.ts` `.tsx` `.py`) are refused at `max_cc` or above
+  on create, patch, apply, append, and a new-file Write. A function already over that line stays
+  editable (default 30). Unparsed Go is refused. `c3po ast gap` lists them.
 - **Create** with a host Write to a new path, or `c3po ast create <file> --expect-absent --stdin`.
 - **Move** with `c3po ast move <src> <dst> --expect-hash <sha>`; **delete** with
   `c3po ast delete <file> --expect-hash <sha>`.
