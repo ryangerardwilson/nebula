@@ -1,5 +1,5 @@
 [Unit]
-Description=Snapshot sql databases into s3 and keep 10 days
+Description=Dump nebula sql databases on the host and keep 10 days
 
 [Service]
 Type=oneshot

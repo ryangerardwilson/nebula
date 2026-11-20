@@ -339,7 +339,7 @@ func (a App) status() (string, error) {
 		return "", err
 	}
 	timer := "inactive"
-	cmd := exec.Command("systemctl", "--user", "is-active", "sqlx-backup.timer")
+	cmd := exec.Command("systemctl", "--user", "is-active", "nebula-sql-backup.timer")
 	out, err := cmd.Output()
 	if strings.TrimSpace(string(out)) == "active" {
 		timer = "active"
@@ -362,7 +362,7 @@ func (a App) logs() error {
 	if a.Logs != nil {
 		return a.Logs()
 	}
-	cmd := exec.Command("journalctl", "--user", "-u", "sqlx-backup.service", "-n", "80", "--no-pager")
+	cmd := exec.Command("journalctl", "--user", "-u", "nebula-sql-backup.service", "-n", "80", "--no-pager")
 	cmd.Stdout = a.Out
 	cmd.Stderr = a.Err
 	return cmd.Run()
@@ -396,7 +396,7 @@ func paint(text string, w io.Writer) string {
 }
 
 const helpText = `sql
-keep a memory sqlite database for each app and back that file up with s3
+keep a database for each app and dump them all daily on the host
 
 global actions:
   sql help

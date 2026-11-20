@@ -60,7 +60,7 @@ func clearBackupDown() {
 }
 
 func downStampPath() string {
-	return filepath.Join(os.TempDir(), "sqlx-backup-down-"+strconv.Itoa(os.Getuid()))
+	return filepath.Join(os.TempDir(), "nebula-sql-backup-down-"+strconv.Itoa(os.Getuid()))
 }
 
 var sshEndpoints = map[string]string{}

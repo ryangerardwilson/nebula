@@ -24,11 +24,16 @@ install_from_source() {
   if [ -L "$dest/auth" ] && [ "$(readlink "$dest/auth")" = nebula ]; then
     rm -f "$dest/auth"
   fi
-  cp "$checkout/sqlx-backup.service" "$unit_dir/sqlx-backup.service"
-  cp "$checkout/sqlx-backup.timer" "$unit_dir/sqlx-backup.timer"
+  if [ -f "$unit_dir/sqlx-backup.timer" ]; then
+    systemctl --user disable --now sqlx-backup.timer >/dev/null 2>&1 || true
+    rm -f "$unit_dir/sqlx-backup.timer" "$unit_dir/sqlx-backup.service"
+    rm -rf "$unit_dir/sqlx-backup.service.d"
+  fi
+  cp "$checkout/nebula-sql-backup.service" "$unit_dir/nebula-sql-backup.service"
+  cp "$checkout/nebula-sql-backup.timer" "$unit_dir/nebula-sql-backup.timer"
   systemctl --user daemon-reload
   loginctl enable-linger "$USER" >/dev/null 2>&1 || true
-  systemctl --user enable --now sqlx-backup.timer
+  systemctl --user enable --now nebula-sql-backup.timer
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "from" ] && [ -d "$2" ]; then

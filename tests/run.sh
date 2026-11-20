@@ -8,10 +8,10 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 grep -q 'module github.com/ryangerardwilson/nebula' go.mod || fail "module path"
 grep -q 'replace ' go.mod && fail "go.mod still replaces a module" || true
 grep -q 'install_from_source' install.sh || fail "install.sh missing from-source"
-grep -q 'sqlx-backup.timer' install.sh || fail "install.sh missing timer"
-grep -q 'Persistent=true' sqlx-backup.timer || fail "timer is not persistent"
-grep -F -q 'OnCalendar=*-*-* 03:15:00' sqlx-backup.timer || fail "timer is not daily at 03:15"
-grep -q 'sql backup' sqlx-backup.service || fail "backup unit missing sql backup"
+grep -q 'nebula-sql-backup.timer' install.sh || fail "install.sh missing timer"
+grep -q 'Persistent=true' nebula-sql-backup.timer || fail "timer is not persistent"
+grep -F -q 'OnCalendar=*-*-* 03:15:00' nebula-sql-backup.timer || fail "timer is not daily at 03:15"
+grep -q 'sql backup' nebula-sql-backup.service || fail "backup unit missing sql backup"
 
 bin=$(mktemp)
 trap 'rm -f "$bin"' EXIT

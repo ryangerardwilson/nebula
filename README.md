@@ -28,6 +28,6 @@ From a checkout:
 ./install.sh from "$PWD"
 ```
 
-That builds `~/.local/bin/nebula` and links `sql`, `s3`, `run`, `tunnel`, and `crypt` to it. A leftover `auth` name that points at `nebula` is removed. The daily snapshot timer stays `sqlx-backup.timer`. It does not restart `tunnel.service`.
+That builds `~/.local/bin/nebula` and links `sql`, `s3`, `run`, `tunnel`, and `crypt` to it. A leftover `auth` name that points at `nebula` is removed. The daily backup timer is `nebula-sql-backup.timer`. Install retires the old `sqlx-backup.timer`. It does not restart `tunnel.service`.
 
 Public source is https://github.com/ryangerardwilson/nebula.

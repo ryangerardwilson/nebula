@@ -1,11 +1,11 @@
 [Unit]
-Description=Daily Postgres dump on the host
+Description=Run the nebula sql backup daily
 
 [Timer]
 OnCalendar=*-*-* 03:15:00
 Persistent=true
 AccuracySec=5m
-Unit=sqlx-backup.service
+Unit=nebula-sql-backup.service
 
 [Install]
 WantedBy=timers.target
