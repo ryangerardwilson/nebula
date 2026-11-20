@@ -3,18 +3,19 @@ package engine
 import "os"
 
 // Mode is sqlite, postgres, or s3.
-// SQLX_ENGINE forces one of those.
-// A set SQLX_ROOT with no engine keeps the sqlite tree used by tests.
-// Production, with neither set, talks to Postgres on the SSH host.
+// SQLX_ENGINE=s3 opts into s3. A set SQLX_ROOT, or SQLX_ENGINE=sqlite, keeps
+// the sqlite tree under that root and never opens Postgres, even when the
+// login environment sets SQLX_ENGINE=postgres. Tests rely on that.
+// Production, with no root, talks to Postgres on the SSH host.
 // Applications keep their own sqlite and back it up with s3. They do not call sql.
 func Mode() string {
-	switch os.Getenv("SQLX_ENGINE") {
-	case "postgres", "sqlite", "s3":
-		return os.Getenv("SQLX_ENGINE")
+	engine := os.Getenv("SQLX_ENGINE")
+	switch {
+	case engine == "s3":
+		return "s3"
+	case engine == "sqlite" || os.Getenv("SQLX_ROOT") != "":
+		return "sqlite"
 	default:
-		if os.Getenv("SQLX_ROOT") != "" {
-			return "sqlite"
-		}
 		return "postgres"
 	}
 }

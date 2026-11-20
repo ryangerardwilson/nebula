@@ -255,6 +255,7 @@ func TestLocalCommitWritesTheRuntimeCopy(t *testing.T) {
 	}
 	runtime := t.TempDir()
 	t.Setenv("SQLX_RUNTIME", runtime)
+	t.Setenv("SQLX_ROOT", "")
 	t.Setenv("SQLX_ENGINE", "postgres")
 	t.Setenv("SQLX_COMMIT", "local")
 	t.Setenv("SQLX_PG_SSH", "bad host")

@@ -17,7 +17,8 @@ func TestRemoteCopyAndUsage(t *testing.T) {
 		t.Skip("set SQLX_PG_TEST=1 to use the remote postgres")
 	}
 	t.Setenv("SQLX_ENGINE", "postgres")
-	t.Setenv("SQLX_ROOT", t.TempDir())
+	t.Setenv("SQLX_ROOT", "")
+	t.Setenv("HOME", t.TempDir())
 	ctx := context.Background()
 	const name = "sqlxprobe"
 	if err := layout.Ensure(); err != nil {

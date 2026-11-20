@@ -23,8 +23,12 @@ func TestEngineFollowsRootAndOverride(t *testing.T) {
 	}
 	t.Setenv("SQLX_ENGINE", "postgres")
 	t.Setenv("SQLX_ROOT", t.TempDir())
+	if Postgres() {
+		t.Fatal("SQLX_ROOT should outrank SQLX_ENGINE=postgres")
+	}
+	t.Setenv("SQLX_ROOT", "")
 	if !Postgres() {
-		t.Fatal("SQLX_ENGINE=postgres should force postgres")
+		t.Fatal("SQLX_ENGINE=postgres should use postgres")
 	}
 	if SSHHost() != "del-vc2" {
 		t.Fatal(SSHHost())
