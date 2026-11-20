@@ -108,13 +108,9 @@ func (m *model) keyList(k string) action {
 	case "q", "esc", "ctrl+c":
 		return actQuit
 	case "j", "down":
-		if m.cursor < len(m.file.Routes)-1 {
-			m.cursor++
-		}
+		m.cursor = cycled(m.cursor, 1, len(m.file.Routes))
 	case "k", "up":
-		if m.cursor > 0 {
-			m.cursor--
-		}
+		m.cursor = cycled(m.cursor, -1, len(m.file.Routes))
 	case "a":
 		m.mode = modeAdd
 		m.notice = ""
@@ -126,6 +122,18 @@ func (m *model) keyList(k string) action {
 		}
 	}
 	return actNone
+}
+
+func cycled(cursor, delta, n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if cursor < 0 {
+		cursor = 0
+	} else if cursor >= n {
+		cursor = n - 1
+	}
+	return (cursor + delta%n + n) % n
 }
 
 func (m *model) keyAdd(k string) action {

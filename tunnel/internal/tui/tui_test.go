@@ -125,6 +125,26 @@ func TestDecodeKeys(t *testing.T) {
 	}
 }
 
+func TestJKWrapsTheRouteList(t *testing.T) {
+	m := model{
+		file: routes.File{Zone: routes.Zone, Routes: []routes.Route{
+			{Name: "lab", Port: 9090},
+			{Name: "notes", Port: 9091},
+		}},
+		mode: modeList,
+	}
+	if m.key("k") != actNone || m.cursor != 1 {
+		t.Fatalf("k %d", m.cursor)
+	}
+	if m.key("j") != actNone || m.cursor != 0 {
+		t.Fatalf("j %d", m.cursor)
+	}
+	empty := model{mode: modeList}
+	if empty.key("j") != actNone || empty.key("k") != actNone || empty.cursor != 0 {
+		t.Fatalf("empty %d", empty.cursor)
+	}
+}
+
 func TestShortcutsStayBehindQuestionMark(t *testing.T) {
 	m := model{
 		file: routes.File{Zone: routes.Zone, Routes: []routes.Route{

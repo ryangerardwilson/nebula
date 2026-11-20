@@ -26,7 +26,7 @@ Define the public nebula command: one binary whose features are sql, s3, run, an
 - **AND** the command MUST NOT read a Google client
 
 ### Requirement: tunnel is the laptop publisher
-`nebula tunnel` SHALL publish laptop ports as names under `ryangerardwilson.com`. Routes SHALL stay in the c3po sqlite record whose app is `tunnel`, kind is `routes`, and key is `routes`. Adding a name SHALL create a proxied CNAME only when that hostname has no DNS. A name that already points somewhere else MUST be left unchanged and MUST NOT be saved. Removing a route MUST NOT delete DNS. `nebula tunnel screen` SHALL open the route screen. `nebula tunnel open` MUST NOT be a command.
+`nebula tunnel` SHALL publish laptop ports as names under `ryangerardwilson.com`. Routes SHALL stay in the c3po sqlite record whose app is `tunnel`, kind is `routes`, and key is `routes`. Adding a name SHALL create a proxied CNAME only when that hostname has no DNS. A name that already points somewhere else MUST be left unchanged and MUST NOT be saved. Removing a route MUST NOT delete DNS. `nebula tunnel screen` SHALL open the route screen. `nebula tunnel open` MUST NOT be a command. `j` and `k` on that screen SHALL wrap the route list. On the last route, `j` SHALL move to the first route. On the first route, `k` SHALL move to the last route. An empty route list SHALL leave the cursor in place. While the shortcut list is open, `j` and `k` SHALL NOT move. Removing a route SHALL keep the cursor at the same index, clamped to the remaining routes.
 
 #### Scenario: Foreign DNS is left alone
 - **GIVEN** a hostname that already has DNS pointing somewhere else
@@ -38,6 +38,17 @@ Define the public nebula command: one binary whose features are sql, s3, run, an
 - **GIVEN** no saved route list
 - **WHEN** the list is created
 - **THEN** it SHALL include `@` on port 8080
+
+#### Scenario: j and k wrap the route list
+- **WHEN** the route list has two routes and the cursor is on the last
+- **AND** the operator presses `j`
+- **THEN** the cursor SHALL be on the first route
+- **AND** `k` SHALL move it to the last route
+
+#### Scenario: Question mark blocks route motion
+- **WHEN** the shortcut list is open
+- **AND** the operator presses `j`
+- **THEN** the cursor SHALL stay on the same route
 
 ### Requirement: crypt reads and writes 1Password
 `nebula crypt` SHALL use the 1Password CLI and the service-account token. `nebula crypt list <vault>` SHALL print titles and Login usernames and MUST NOT print a password. `nebula crypt get <vault> <name>` SHALL copy one match with wl-copy when stdout is a terminal and SHALL print that secret when stdout is not a terminal. `nebula crypt describe <vault> <name>` SHALL print the title, id, category, and field labels and MUST NOT print a concealed value. `nebula crypt create` and `nebula crypt put` SHALL read a new secret from stdin and MUST NOT print it. `nebula crypt delete <vault> <name>` SHALL delete one exact title. `nebula crypt delete <vault> item <id>` SHALL delete that item id. `nebula crypt vaults` SHALL print vault names. `nebula crypt items <vault>` SHALL print item ids, titles, categories, and usernames and MUST NOT print a concealed value. `nebula crypt copy <vault> <id>` SHALL copy that item with wl-copy and MUST NOT print the secret. `nebula crypt` MUST NOT open an item screen. `r2d2 pass` SHALL reach 1Password only through these commands and MUST NOT call `op`. The argument forms `<vault> -l`, `<vault> <search>`, `--show`, `--create`, `--edit`, and `--delete` SHALL keep working.
