@@ -1,49 +1,47 @@
-// Package session stores one sqlite session for the tunnel screen.
-// The session body stays after the screen closes so a later --resume can
-// open the same screen. The active row is only present while the process runs.
+// Package session keeps the tunnel screen's session. c3po owns screen
+// sessions, so this package asks c3po to open, note, place, and close one
+// through c3po __session, and c3po is their one writer. The session stays
+// after the screen closes so a later --resume can open the same screen.
 package session
 
 import (
-	"crypto/rand"
+	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/ryangerardwilson/nebula/tunnel/internal/records"
-)
-
-const (
-	appName     = "tui"
-	kindSession = "session"
-	kindActive  = "active"
 )
 
 var idPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// runC3po runs c3po __session with args and returns its stdout.
+var runC3po = func(args ...string) ([]byte, error) {
+	cmd := exec.Command("c3po", append([]string{"__session"}, args...)...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return nil, errors.New(msg)
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
 // Body is the durable screen state. Cursor is a stable row key. Path is a
 // directory, a file, or a parent id. Args are the flags a one-shot screen
-// such as l should replay. Secrets are not stored.
+// should replay. Secrets are not stored.
 type Body struct {
-	ID     string   `json:"id"`
 	Screen string   `json:"screen"`
 	CWD    string   `json:"cwd,omitempty"`
 	Path   string   `json:"path,omitempty"`
 	Cursor string   `json:"cursor,omitempty"`
 	Args   []string `json:"args,omitempty"`
-}
-
-type activeBody struct {
-	SessionID string `json:"session_id"`
-	PID       int    `json:"pid"`
-	PIDStart  int64  `json:"pid_start"`
-	Screen    string `json:"screen"`
-	CWD       string `json:"cwd,omitempty"`
 }
 
 // Session is one open screen. A nil Session ignores Note, Place, and Close
@@ -90,45 +88,35 @@ func TakeResume(args []string) (string, []string, error) {
 	return id, rest, nil
 }
 
-// Open loads id or creates a session. A missing id returns an error so restore
-// does not start an empty screen. The active row records this process.
+// Open asks c3po to load id or create a session for this process. A missing
+// id returns an error so restore does not start an empty screen.
 func Open(screen, id string) (*Session, error) {
 	if screen == "" {
 		return nil, errors.New("nebula: session screen is empty")
 	}
-	if id == "" {
-		next, err := newID()
-		if err != nil {
-			return nil, err
-		}
-		sess := &Session{id: next, screen: screen, body: Body{ID: next, Screen: screen}}
-		if err := sess.write(); err != nil {
-			return nil, err
-		}
-		return sess, nil
-	}
-	if !idPattern.MatchString(id) {
+	if id != "" && !idPattern.MatchString(id) {
 		return nil, errors.New("nebula: --resume needs a session id")
 	}
-	raw, ok, err := records.Get(appName, kindSession, id)
+	args := []string{"open", screen, pid()}
+	if id != "" {
+		args = append(args, id)
+	}
+	out, err := runC3po(args...)
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, fmt.Errorf("nebula: session %s was not found", id)
+	var opened struct {
+		ID       string `json:"id"`
+		Restored bool   `json:"restored"`
+		Place    *Body  `json:"place"`
 	}
-	var body Body
-	if err := json.Unmarshal(raw, &body); err != nil {
-		return nil, err
+	if err := json.Unmarshal(out, &opened); err != nil || opened.ID == "" {
+		return nil, errors.New("nebula: c3po __session open printed no session")
 	}
-	if body.Screen != "" && body.Screen != screen {
-		return nil, fmt.Errorf("nebula: session %s is a %s screen", id, body.Screen)
-	}
-	body.ID = id
-	body.Screen = screen
-	sess := &Session{id: id, screen: screen, body: body, restored: true}
-	if err := sess.write(); err != nil {
-		return nil, err
+	sess := &Session{id: opened.ID, screen: screen, body: Body{Screen: screen}}
+	if opened.Restored && opened.Place != nil {
+		sess.body = *opened.Place
+		sess.restored = true
 	}
 	return sess, nil
 }
@@ -149,8 +137,8 @@ func (s *Session) ID() string {
 	return s.id
 }
 
-// Note merges non-empty fields into the session and writes it.
-// A non-nil Args slice replaces the saved args, including an empty slice.
+// Note merges non-empty fields into the session and asks c3po to store them.
+// A non-nil Args slice replaces the saved args.
 func (s *Session) Note(note Body) error {
 	if s == nil {
 		return nil
@@ -167,17 +155,24 @@ func (s *Session) Note(note Body) error {
 	if note.Args != nil {
 		s.body.Args = append([]string(nil), note.Args...)
 	}
-	return s.write()
+	raw, err := json.Marshal(note)
+	if err != nil {
+		return err
+	}
+	_, err = runC3po("note", s.id, pid(), string(raw))
+	return err
 }
 
-// Place sets the path and cursor even when they are empty, then writes.
+// Place sets the path and cursor even when they are empty and asks c3po to
+// store them.
 func (s *Session) Place(path, cursor string) error {
 	if s == nil {
 		return nil
 	}
 	s.body.Path = path
 	s.body.Cursor = cursor
-	return s.write()
+	_, err := runC3po("place", s.id, pid(), path, cursor)
+	return err
 }
 
 // Index returns the row whose key matches the restored cursor.
@@ -193,81 +188,17 @@ func (s *Session) Index(keys []string) (int, bool) {
 	return 0, false
 }
 
-// Close removes the active row and keeps the session body.
+// Close asks c3po to drop the active row and keep the session.
 func (s *Session) Close() error {
 	if s == nil {
 		return nil
 	}
-	return records.Delete(appName, kindActive, s.id)
+	_, err := runC3po("close", s.id)
+	return err
 }
 
-func (s *Session) write() error {
-	if cwd, err := os.Getwd(); err == nil && cwd != "" {
-		s.body.CWD = cwd
-	}
-	s.body.ID = s.id
-	s.body.Screen = s.screen
-	raw, err := json.Marshal(s.body)
-	if err != nil {
-		return err
-	}
-	if err := records.Put(appName, kindSession, s.id, raw); err != nil {
-		return err
-	}
-	return s.writeActive()
-}
-
-func (s *Session) writeActive() error {
-	ticks, _ := processStartTicks(os.Getpid())
-	raw, err := json.Marshal(activeBody{
-		SessionID: s.id,
-		PID:       os.Getpid(),
-		PIDStart:  ticks,
-		Screen:    s.screen,
-		CWD:       s.body.CWD,
-	})
-	if err != nil {
-		return err
-	}
-	return records.Put(appName, kindActive, s.id, raw)
-}
-
-func newID() (string, error) {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	ms := uint64(time.Now().UnixMilli())
-	b[0] = byte(ms >> 40)
-	b[1] = byte(ms >> 32)
-	b[2] = byte(ms >> 24)
-	b[3] = byte(ms >> 16)
-	b[4] = byte(ms >> 8)
-	b[5] = byte(ms)
-	b[6] = (b[6] & 0x0f) | 0x70
-	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
-}
-
-func processStartTicks(pid int) (int64, bool) {
-	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err != nil {
-		return 0, false
-	}
-	text := string(data)
-	end := strings.LastIndex(text, ")")
-	if end < 0 || end+2 >= len(text) {
-		return 0, false
-	}
-	fields := strings.Fields(text[end+2:])
-	if len(fields) <= 19 {
-		return 0, false
-	}
-	ticks, err := strconv.ParseInt(fields[19], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return ticks, true
+func pid() string {
+	return strconv.Itoa(os.Getpid())
 }
 
 // Interactive reports whether w is a terminal. Tests that pass a buffer

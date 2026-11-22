@@ -24,9 +24,11 @@ func get(db, app, kind, key string) ([]byte, bool, error) {
 	return []byte(rows[0].Body), true, nil
 }
 
+// put writes one record. An existing record keeps its id.
 func put(db, app, kind, key string, body []byte) error {
-	sql := "BEGIN;\nDELETE FROM record WHERE app = " + quote(app) + " AND kind = " + quote(kind) + " AND item_key = " + quote(key) + ";\n" +
-		"INSERT INTO record(app, kind, item_key, body) VALUES (" + quote(app) + ", " + quote(kind) + ", " + quote(key) + ", " + quote(string(body)) + ");\nCOMMIT;\n"
+	where := " WHERE app = " + quote(app) + " AND kind = " + quote(kind) + " AND item_key = " + quote(key)
+	sql := "BEGIN;\nUPDATE record SET body = " + quote(string(body)) + where + ";\n" +
+		"INSERT INTO record(app, kind, item_key, body) SELECT " + quote(app) + ", " + quote(kind) + ", " + quote(key) + ", " + quote(string(body)) + " WHERE changes() = 0;\nCOMMIT;\n"
 	return execSQL(db, sql)
 }
 
