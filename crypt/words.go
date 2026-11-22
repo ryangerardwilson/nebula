@@ -19,9 +19,18 @@ func legacyArgs(args []string) ([]string, error) {
 		return putArgs(args[1:])
 	case "delete":
 		return deleteArgs(args[1:])
+	case "load":
+		return loadArgs(args[1:])
 	default:
 		return nil, fmt.Errorf("%s", usage)
 	}
+}
+
+func loadArgs(rest []string) ([]string, error) {
+	if len(rest) != 1 || strings.TrimSpace(rest[0]) == "" {
+		return nil, fmt.Errorf("Use: nebula crypt load <vault>")
+	}
+	return []string{rest[0], "--load"}, nil
 }
 
 func listArgs(rest []string) ([]string, error) {

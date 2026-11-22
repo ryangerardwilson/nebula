@@ -34,6 +34,7 @@ var actions = map[string]action{
 	"--edit":   Runner.editItem,
 	"--delete": Runner.deleteItem,
 	"--show":   Runner.showItem,
+	"--load":   Runner.loadVault,
 }
 
 // Run runs one command and returns the exit code: 0 on success, 1 on

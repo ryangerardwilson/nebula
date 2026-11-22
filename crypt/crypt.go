@@ -30,6 +30,10 @@ global actions:
   # crypt get <vault> <name>
   nebula crypt get Root GOOGLE_OAUTH_CLIENT_ID
 
+  load every shell name in a vault into the current shell
+  # eval "$(crypt load <vault>)"
+  eval "$(nebula crypt load Wiom)"
+
   show title, id, category, and field labels
   # crypt describe <vault> <name>
   nebula crypt describe Root GOOGLE_OAUTH_CLIENT_SECRET
@@ -55,13 +59,16 @@ global actions:
 One match is copied with wl-copy and is not printed. list prints titles and
 usernames, never passwords. items and vaults print no concealed value.
 copy copies one item and prints nothing. A secret is read from stdin.
+load prints export lines when stdout is not a terminal. Eval those lines
+to put the vault in the current shell. A terminal does not print or copy
+those secrets.
 The token is OP_SERVICE_ACCOUNT_TOKEN, or the file named by
 OP_SERVICE_ACCOUNT_TOKEN_FILE, or ~/.config/c3po/pass/service-account-token.
 c3po pass runs these same argument forms. c3po tui pass reaches 1Password
 through vaults, items, copy, and delete.
 `
 
-const usage = "Use: nebula crypt list <vault> | nebula crypt get <vault> <name> | nebula crypt describe <vault> <name> | nebula crypt create <vault> <name> | nebula crypt put <vault> <name> | nebula crypt delete <vault> <name> | nebula crypt vaults | nebula crypt items <vault> | nebula crypt copy <vault> <id>"
+const usage = "Use: nebula crypt list <vault> | nebula crypt get <vault> <name> | nebula crypt describe <vault> <name> | nebula crypt create <vault> <name> | nebula crypt put <vault> <name> | nebula crypt delete <vault> <name> | nebula crypt vaults | nebula crypt items <vault> | nebula crypt load <vault> | nebula crypt copy <vault> <id>"
 
 func realRunner(out, errw io.Writer) cli.Runner {
 	return cli.Runner{
@@ -108,7 +115,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return deleteByID(stdout, stderr, args[1], args[3])
 		}
 		return runWords(stdout, stderr, args)
-	case "list", "get", "describe", "create", "put":
+	case "list", "get", "describe", "create", "put", "load":
 		return runWords(stdout, stderr, args)
 	default:
 		return runnerFactory(stdout, stderr).Run(args)

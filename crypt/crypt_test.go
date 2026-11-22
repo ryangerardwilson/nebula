@@ -3,6 +3,7 @@ package crypt
 import (
 	"bytes"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestHelpOmitsCommandsAndAScreen(t *testing.T) {
 	if strings.Contains(Help, "\ncommands:\n") || strings.Contains(Help, "crypt screen") {
 		t.Fatal(Help)
 	}
-	for _, needle := range []string{"nebula crypt vaults", "nebula crypt items Root", "nebula crypt copy Root ITEM", "crypt delete <vault> item <id>", "c3po tui pass"} {
+	for _, needle := range []string{"nebula crypt vaults", "nebula crypt items Root", "nebula crypt copy Root ITEM", "crypt delete <vault> item <id>", "c3po tui pass", "eval \"$(nebula crypt load Wiom)\""} {
 		if !strings.Contains(Help, needle) {
 			t.Fatalf("missing %s", needle)
 		}
@@ -40,6 +41,7 @@ func TestWordForms(t *testing.T) {
 		{[]string{"put", "Root", "GH_EXAMPLE", "name", "NEXT"}, []string{"Root", "--edit", "GH_EXAMPLE", "--title", "NEXT"}},
 		{[]string{"put", "Root", "GH_EXAMPLE", "template", "item.json"}, []string{"Root", "--edit", "GH_EXAMPLE", "--template", "item.json"}},
 		{[]string{"delete", "Root", "GH_EXAMPLE"}, []string{"Root", "--delete", "GH_EXAMPLE"}},
+		{[]string{"load", "Wiom"}, []string{"Wiom", "--load"}},
 	}
 	for _, tc := range cases {
 		got, err := legacyArgs(tc.in)
@@ -132,6 +134,62 @@ func TestLegacyListHidesFieldValues(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "super-secret-value") || !strings.Contains(out.String(), "GH_EXAMPLE") {
 		t.Fatal(out.String())
+	}
+}
+
+func TestLoadOnATerminalPrintsNoSecret(t *testing.T) {
+	var out, errw bytes.Buffer
+	code := Run([]string{"load", "Wiom"}, &out, &errw)
+	if code != 1 || out.Len() != 0 {
+		t.Fatalf("code %d out %q err %q", code, out.String(), errw.String())
+	}
+	if errw.String() != "Load prints export lines for the shell. Run: eval \"$(nebula crypt load Wiom)\"\n" {
+		t.Fatalf("stderr = %q", errw.String())
+	}
+}
+
+func TestLoadUsage(t *testing.T) {
+	for _, args := range [][]string{{"load"}, {"load", "Wiom", "extra"}, {"load", " "}} {
+		var out, errw bytes.Buffer
+		code := Run(args, &out, &errw)
+		if code != 1 || out.Len() != 0 || errw.String() != "Use: nebula crypt load <vault>\n" {
+			t.Fatalf("%v code %d out %q err %q", args, code, out.String(), errw.String())
+		}
+	}
+}
+
+func TestLoadPrintsExports(t *testing.T) {
+	t.Setenv("OP_SERVICE_ACCOUNT_TOKEN", "test-token")
+	body := `[{"id":"acct","title":"WIOM_SNOWFLAKE_ACCOUNT","category":"API_CREDENTIAL","vault":{"id":"v1"}},{"id":"mail","title":"ada@example.com","category":"LOGIN","vault":{"id":"v1"}},{"id":"note","title":"NOTES","category":"SECURE_NOTE","vault":{"id":"v1"}}]`
+	fake := &fakeOp{out: map[string][]byte{
+		"item list --vault Wiom --long --format=json": []byte(body),
+		"read --no-newline op://v1/acct/credential":   []byte("acct-secret"),
+	}}
+	clip := &fakeClip{}
+	withRunner(t, fake, clip)
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var errw bytes.Buffer
+	code := Run([]string{"load", "Wiom"}, writer, &errw)
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = reader.Close()
+	want := "export WIOM_SNOWFLAKE_ACCOUNT='acct-secret'\n"
+	if code != 0 || string(out) != want {
+		t.Fatalf("code %d out %q err %q", code, out, errw.String())
+	}
+	if clip.text != "" || strings.Contains(errw.String(), "acct-secret") {
+		t.Fatal("secret was copied or written to stderr")
+	}
+	if errw.String() != "Skipped 2 items whose names are not shell variables.\n" {
+		t.Fatalf("stderr = %q", errw.String())
 	}
 }
 
