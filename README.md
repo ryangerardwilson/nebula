@@ -22,6 +22,14 @@ nebula crypt list Root
 
 With nothing else set, `sql` uses Postgres on the host named by `SQLX_PG_SSH`, or `del-vc2`. A set `SQLX_ROOT` keeps `sql` on a local sqlite directory. `SQLX_ENGINE` can force `postgres`, `sqlite`, or `s3`. `S3_ROOT` keeps `s3` on a local directory and does not open SSH, and `S3_SSH` names the host. Objects live under `/var/lib/nebula/s3` on that host.
 
+## Why this shape
+
+A prototype needs a database, object storage, a public URL, and secrets without standing up cloud infrastructure or opening ports on the host.
+
+`nebula` gives each tool its own SQLite file (owned by the tool, not by `sql`). After a commit the tool marks the file; a background worker uploads a consistent snapshot to S3. At startup a missing file is restored. The same binary also publishes a laptop port behind a hostname and reads and writes 1Password items.
+
+The result is a first version that can be inspected, backed up, and iterated the same day it is written — without a separate platform team or a public attack surface.
+
 ## Install
 
 From a checkout:
@@ -33,3 +41,5 @@ From a checkout:
 That builds `~/.local/bin/nebula` and links `sql`, `s3`, `run`, `tunnel`, and `crypt` to it. A leftover `auth` name that points at `nebula` is removed. The daily backup timer is `nebula-sql-backup.timer`. Install also enables `nebula-keep.timer` and `nebula-keep-flush.service`. Install retires the old `sqlx-backup.timer`. It does not restart `tunnel.service`.
 
 Public source is https://github.com/ryangerardwilson/nebula.
+
+Part of an open-source harness for shipping the smallest inspectable system that agents and operators can run and improve. See also [nebula](https://github.com/ryangerardwilson/nebula), [c3po](https://github.com/ryangerardwilson/c3po), [r2d2](https://github.com/ryangerardwilson/r2d2), [crusade](https://github.com/ryangerardwilson/crusade), [tesseract](https://github.com/ryangerardwilson/tesseract).
