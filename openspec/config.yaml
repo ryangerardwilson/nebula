@@ -10,13 +10,16 @@ context: |
   path on that origin. run does not sign a user in.
   sql talks to Postgres on the SSH host. It does not hold application
   records. Each app keeps its own sqlite and backs that file up with s3.
-  s3 stores objects with s3:// URIs.
+  s3 stores objects with s3:// URIs. keep backs up application sqlite
+  files through s3.
   run builds a site on the laptop and serves it on 127.0.0.1 of the SSH
   host behind one free hostname. It does not migrate a database.
   tunnel publishes laptop ports through the laptop Cloudflare tunnel.
-  Env names SQLX_* and S3X_* stay. The runtime directory name is sqlx.
-  Object buckets are sqlx and sqlx-backups. The remote directory is
-  /var/lib/nebula/s3x.
+  Env names SQLX_* stay. The object store reads S3_ROOT and S3_SSH.
+  The runtime directory name is sqlx.
+  Object buckets are sqlx and sqlx-backups; application copies are in
+  backups. The remote directory is /var/lib/nebula/s3. keep owns the durable copy
+  of each application sqlite file and never its schema or rows.
 
 rules:
   proposal:

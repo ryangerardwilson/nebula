@@ -1,7 +1,7 @@
-// Package s3x stores objects for the nebula s3 command.
-// S3X_ROOT selects a local directory and does not open SSH.
+// Package s3 stores objects for the nebula s3 command.
+// S3_ROOT selects a local directory and does not open SSH.
 // Without it, objects live on the SSH host under RemoteRoot.
-package s3x
+package s3
 
 import (
 	"context"
@@ -30,10 +30,14 @@ type Object struct {
 	Size int64
 }
 
-func localRoot() string { return os.Getenv("S3X_ROOT") }
+func localRoot() string { return os.Getenv("S3_ROOT") }
+
+// Local reports whether objects live in a local directory, the test store,
+// instead of on the SSH host.
+func Local() bool { return localRoot() != "" }
 
 func sshHostName() (string, error) {
-	host := os.Getenv("S3X_SSH")
+	host := os.Getenv("S3_SSH")
 	if host == "" {
 		host = engine.SSHHost()
 	}
@@ -110,6 +114,19 @@ func Put(ctx context.Context, local, bucket, key string) error {
 		return putLocal(root, local, bucket, key)
 	}
 	return putSSH(ctx, local, bucket, key)
+}
+
+// PutMakingBucket puts the file and makes the bucket only when the put finds
+// it missing, so a put to an existing bucket is one SSH command.
+func PutMakingBucket(ctx context.Context, local, bucket, key string) error {
+	err := Put(ctx, local, bucket, key)
+	if !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if err := MakeBucket(ctx, bucket); err != nil {
+		return err
+	}
+	return Put(ctx, local, bucket, key)
 }
 
 // Get copies an object to local, replacing a file that is already there.

@@ -13,7 +13,7 @@ import (
 	"github.com/ryangerardwilson/nebula/internal/orm"
 	"github.com/ryangerardwilson/nebula/internal/pg"
 	"github.com/ryangerardwilson/nebula/internal/store"
-	"github.com/ryangerardwilson/nebula/s3x"
+	"github.com/ryangerardwilson/nebula/s3"
 )
 
 func createObject(ctx context.Context, name string) error {
@@ -77,12 +77,12 @@ func objectNames() ([]string, error) {
 	for _, name := range local {
 		add(name)
 	}
-	keys, err := s3x.List(context.Background(), s3x.DatabaseBucket, "")
+	keys, err := s3.List(context.Background(), s3.DatabaseBucket, "")
 	if err != nil && !missingObject(err) {
-		if len(set) > 0 && s3x.Unreachable(err) {
+		if len(set) > 0 && s3.Unreachable(err) {
 			return nameList(set), nil
 		}
-		if os.Getenv("S3X_ROOT") == "" && len(set) == 0 {
+		if !s3.Local() && len(set) == 0 {
 			return postgresNames(set)
 		}
 		if len(set) == 0 {
@@ -95,7 +95,7 @@ func objectNames() ([]string, error) {
 			add(name)
 		}
 	}
-	if os.Getenv("S3X_ROOT") != "" {
+	if s3.Local() {
 		return nameList(set), nil
 	}
 	return postgresNames(set)
@@ -122,7 +122,7 @@ func postgresNames(set map[string]struct{}) ([]string, error) {
 
 func dropObject(name string) error {
 	ctx := context.Background()
-	err := s3x.Delete(ctx, s3x.DatabaseBucket, name+".sqlite")
+	err := s3.Delete(ctx, s3.DatabaseBucket, name+".sqlite")
 	if err != nil && !missingObject(err) {
 		return err
 	}
@@ -132,7 +132,7 @@ func dropObject(name string) error {
 	if err := os.Remove(layout.ORMPath(name)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if os.Getenv("S3X_ROOT") != "" {
+	if s3.Local() {
 		return nil
 	}
 	exists, err := pg.Exists(ctx, name)
@@ -148,7 +148,7 @@ func dropObject(name string) error {
 func renameObject(oldName, newName string) error {
 	ctx := context.Background()
 	destKey := newName + ".sqlite"
-	ok, err := s3x.Exists(ctx, s3x.DatabaseBucket, destKey)
+	ok, err := s3.Exists(ctx, s3.DatabaseBucket, destKey)
 	if err != nil {
 		return err
 	}
@@ -156,15 +156,15 @@ func renameObject(oldName, newName string) error {
 		return nil
 	}
 	srcKey := oldName + ".sqlite"
-	ok, err = s3x.Exists(ctx, s3x.DatabaseBucket, srcKey)
+	ok, err = s3.Exists(ctx, s3.DatabaseBucket, srcKey)
 	if err != nil {
 		return err
 	}
 	if ok {
-		if err := s3x.Copy(ctx, s3x.DatabaseBucket, srcKey, s3x.DatabaseBucket, destKey); err != nil {
+		if err := s3.Copy(ctx, s3.DatabaseBucket, srcKey, s3.DatabaseBucket, destKey); err != nil {
 			return err
 		}
-		if err := s3x.Delete(ctx, s3x.DatabaseBucket, srcKey); err != nil {
+		if err := s3.Delete(ctx, s3.DatabaseBucket, srcKey); err != nil {
 			return err
 		}
 	}
@@ -174,7 +174,7 @@ func renameObject(oldName, newName string) error {
 	if err := renameORM(oldName, newName); err != nil {
 		return err
 	}
-	if os.Getenv("S3X_ROOT") != "" {
+	if s3.Local() {
 		return nil
 	}
 	oldExists, err := pg.Exists(ctx, oldName)

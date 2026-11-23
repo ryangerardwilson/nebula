@@ -1,4 +1,4 @@
-package s3x
+package s3
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 
 func TestRoundTripOnALocalRoot(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("S3X_ROOT", root)
+	t.Setenv("S3_ROOT", root)
 	ctx := context.Background()
 	if err := MakeBucket(ctx, "notes"); err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestRoundTripOnALocalRoot(t *testing.T) {
 }
 
 func TestPutRefusesAMissingBucketAndABadName(t *testing.T) {
-	t.Setenv("S3X_ROOT", t.TempDir())
+	t.Setenv("S3_ROOT", t.TempDir())
 	src := filepath.Join(t.TempDir(), "a.txt")
 	if err := os.WriteFile(src, []byte("a"), 0o600); err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestPutRefusesAMissingBucketAndABadName(t *testing.T) {
 }
 
 func TestCLIPutGetAndList(t *testing.T) {
-	t.Setenv("S3X_ROOT", t.TempDir())
+	t.Setenv("S3_ROOT", t.TempDir())
 	var out, errw bytes.Buffer
 	if code := run([]string{"make", "bucket", "notes"}, &out, &errw); code != 0 {
 		t.Fatal(errw.String())
@@ -123,3 +123,22 @@ func TestCLIPutGetAndList(t *testing.T) {
 }
 
 func ioDiscard() *bytes.Buffer { return &bytes.Buffer{} }
+
+func TestPutMakingBucketMakesAMissingBucket(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("S3_ROOT", root)
+	src := filepath.Join(t.TempDir(), "a.sqlite")
+	if err := os.WriteFile(src, []byte("a"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := PutMakingBucket(ctx, src, "backups", "a.sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := Exists(ctx, "backups", "a.sqlite"); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if err := PutMakingBucket(ctx, src, "backups", "a.sqlite"); err != nil {
+		t.Fatal(err)
+	}
+}

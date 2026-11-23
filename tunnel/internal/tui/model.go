@@ -5,15 +5,10 @@ package tui
 
 import (
 	"fmt"
-	"net"
-	"os/exec"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ryangerardwilson/nebula/tunnel/internal/routes"
 	"github.com/ryangerardwilson/nebula/tunnel/internal/session"
-	"github.com/ryangerardwilson/nebula/tunnel/internal/store"
 )
 
 const (
@@ -28,52 +23,66 @@ const (
 	actNone action = iota
 	actQuit
 	actSave
+	actRemove
 )
 
+// model is the screen's state. file is a cache of the route store's last
+// answer and is only ever replaced whole. removing holds the removes the
+// worker has not answered; the view is the cache with those rows marked.
 type model struct {
-	home    string
-	file    routes.File
-	cursor  int
-	mode    string
-	name    input
-	port    input
-	notice  string
-	service bool
-	local   map[int]bool
-	color   bool
-	help    bool
-	session *session.Session
+	home     string
+	file     routes.File
+	cursor   int
+	mode     string
+	name     input
+	port     input
+	notice   string
+	svc      serviceState
+	local    map[int]bool
+	confirm  string
+	removing map[string]bool
+	color    bool
+	help     bool
 }
+
+// serviceState is what the last scan said about tunnel.service.
+type serviceState int
+
+const (
+	svcStopped serviceState = iota
+	svcChecking
+	svcRunning
+)
 
 func newModel(home string, file routes.File, color bool) model {
 	return model{
-		home:  home,
-		file:  file,
-		mode:  modeList,
-		name:  input{limit: 63},
-		port:  input{limit: 5},
-		local: map[int]bool{},
-		color: color,
+		home:     home,
+		file:     file,
+		mode:     modeList,
+		name:     input{limit: 63},
+		port:     input{limit: 5},
+		svc:      svcChecking,
+		local:    map[int]bool{},
+		removing: map[string]bool{},
+		color:    color,
 	}
 }
 
-func (m *model) noteSession() {
-	name := ""
+// place is the selected route's name, the session's cursor key.
+func (m model) place() string {
 	if m.cursor >= 0 && m.cursor < len(m.file.Routes) {
-		name = m.file.Routes[m.cursor].Name
+		return m.file.Routes[m.cursor].Name
 	}
-	_ = m.session.Place("", name)
+	return ""
 }
 
-func (m *model) restoreSession() {
-	if m.session == nil {
-		return
-	}
+// restore moves the cursor to the route a resumed session was on.
+func (m *model) restore(sess *session.Session) {
 	keys := make([]string, len(m.file.Routes))
 	for i, route := range m.file.Routes {
 		keys[i] = route.Name
 	}
-	if i, ok := m.session.Index(keys); ok {
+	if i, ok := sess.Index(keys); ok {
 		m.cursor = i
 	}
 }
@@ -84,8 +93,7 @@ func (m *model) key(k string) action {
 	case modeAdd:
 		return m.keyAdd(k)
 	case modeConfirm:
-		m.keyConfirm(k)
-		return actNone
+		return m.keyConfirm(k)
 	default:
 		return m.keyList(k)
 	}
@@ -117,8 +125,9 @@ func (m *model) keyList(k string) action {
 		m.port.focused = false
 		m.name.focused = true
 	case "d":
-		if len(m.file.Routes) > 0 {
+		if name := m.place(); name != "" && !m.removing[name] {
 			m.mode = modeConfirm
+			m.confirm = name
 		}
 	}
 	return actNone
@@ -163,58 +172,87 @@ func (m *model) focusedInput() *input {
 	return &m.name
 }
 
-func (m *model) keyConfirm(k string) {
+// keyConfirm on y marks the route as being removed; the worker does the
+// remove.
+func (m *model) keyConfirm(k string) action {
 	switch k {
 	case "y", "Y":
 		m.mode = modeList
-		if len(m.file.Routes) > 0 {
-			m.removeCurrent()
+		if m.removing == nil {
+			m.removing = map[string]bool{}
 		}
+		m.removing[m.confirm] = true
+		return actRemove
 	case "n", "N", "esc":
 		m.mode = modeList
 	}
+	return actNone
 }
 
-func (m *model) removeCurrent() {
-	name := m.file.Routes[m.cursor].Name
-	next, err := store.Remove(m.home, name)
-	if err != nil {
-		m.notice = err.Error()
-		return
+// answer applies one worker result.
+func (m *model) answer(r result) {
+	switch r.kind {
+	case jobScan:
+		m.scanned(r)
+	case jobRemove:
+		m.removed(r)
+	case jobAdd:
+		m.saved(r)
 	}
-	m.file = next
-	m.cursor = min(m.cursor, len(m.file.Routes)-1)
-	m.cursor = max(m.cursor, 0)
-	m.notice = "removed " + name
-	m.scan()
 }
 
-// saved applies the result of an add that ran in the background.
-func (m *model) saved(err error) {
-	if err != nil {
-		m.notice = err.Error()
+// removed drops the remove intent. On success the store's list replaces
+// the cache; on failure the row comes back and the error is shown.
+func (m *model) removed(r result) {
+	delete(m.removing, r.name)
+	if r.err != nil {
+		m.notice = r.err.Error()
 		return
 	}
-	file, err := routes.Load(routes.Path(m.home))
-	if err != nil {
-		m.notice = err.Error()
+	m.replace(r.file)
+	m.notice = "removed " + r.name
+}
+
+// saved applies the answer to an add. On success the store's list
+// replaces the cache.
+func (m *model) saved(r result) {
+	if r.err != nil {
+		m.notice = r.err.Error()
 		return
 	}
-	m.file = file
+	m.replace(r.file)
 	m.mode = modeList
 	m.notice = "saved"
 	m.name.value = ""
 	m.port.value = ""
-	m.scan()
 }
 
-// scan refreshes the service state and which local ports answer.
-func (m *model) scan() {
-	m.service = serviceUp()
-	m.local = map[int]bool{}
-	for _, route := range m.file.Routes {
-		m.local[route.Port] = listening(route.Port)
+// scanned takes the service state and which local ports answer. A failed
+// scan keeps the last ones.
+func (m *model) scanned(r result) {
+	if r.err != nil {
+		m.notice = r.err.Error()
+		return
 	}
+	m.local = r.local
+	m.svc = svcStopped
+	if r.service {
+		m.svc = svcRunning
+	}
+}
+
+// replace swaps the cached list for the store's answer and keeps the
+// cursor on the same route while it is listed.
+func (m *model) replace(file routes.File) {
+	place := m.place()
+	m.file = file
+	for i, route := range file.Routes {
+		if route.Name == place {
+			m.cursor = i
+			return
+		}
+	}
+	m.cursor = max(min(m.cursor, len(file.Routes)-1), 0)
 }
 
 func (m model) View() string {
@@ -224,7 +262,9 @@ func (m model) View() string {
 	var b strings.Builder
 	b.WriteString(m.bold("tunnel") + "  " + m.dim(routes.Zone) + "\n")
 	state := "service stopped"
-	if m.service {
+	if m.svc == svcChecking {
+		state = "checking service"
+	} else if m.svc == svcRunning {
 		state = "service running"
 	}
 	b.WriteString(m.dim(state) + "\n\n")
@@ -260,15 +300,28 @@ func (m model) viewRoutes(b *strings.Builder) {
 		if i == m.cursor {
 			mark = "> "
 		}
-		local := "down"
-		if m.local[route.Port] {
-			local = "up"
-		}
-		line := fmt.Sprintf("%s%-8s  %-32s  %5d  %s", mark, route.Name, routes.Hostname(m.file.Zone, route.Name), route.Port, local)
+		line := fmt.Sprintf("%s%-8s  %-32s  %5d  %s", mark, route.Name, routes.Hostname(m.file.Zone, route.Name), route.Port, m.portState(route))
 		if i == m.cursor {
 			line = m.bold(line)
 		}
 		b.WriteString(line + "\n")
+	}
+}
+
+// portState is up or down from the last scan, … before one, or removing
+// while a remove is pending.
+func (m model) portState(route routes.Route) string {
+	if m.removing[route.Name] {
+		return "removing"
+	}
+	up, known := m.local[route.Port]
+	switch {
+	case !known:
+		return "…"
+	case up:
+		return "up"
+	default:
+		return "down"
 	}
 }
 
@@ -280,7 +333,7 @@ func (m model) viewFooter(b *strings.Builder) {
 		b.WriteString(m.dim("host  "+m.preview()) + "\n")
 		b.WriteString(m.dim("enter save    esc cancel"))
 	case modeConfirm:
-		b.WriteString("remove " + m.file.Routes[m.cursor].Name + "? y or n")
+		b.WriteString("remove " + m.confirm + "? y or n")
 	}
 }
 
@@ -308,17 +361,4 @@ func (m model) dim(s string) string {
 		return s
 	}
 	return "\x1b[38;5;245m" + s + "\x1b[39m"
-}
-
-func serviceUp() bool {
-	return exec.Command("systemctl", "--user", "--quiet", "is-active", "tunnel.service").Run() == nil
-}
-
-func listening(port int) bool {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 150*time.Millisecond)
-	if err != nil {
-		return false
-	}
-	conn.Close()
-	return true
 }

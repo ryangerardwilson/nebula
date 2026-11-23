@@ -10,13 +10,13 @@ import (
 
 	"github.com/ryangerardwilson/nebula/internal/cache"
 	"github.com/ryangerardwilson/nebula/internal/store"
-	"github.com/ryangerardwilson/nebula/s3x"
+	"github.com/ryangerardwilson/nebula/s3"
 )
 
 func TestObjectBackupSurvivesALostRuntimeCopy(t *testing.T) {
 	t.Setenv("SQLX_ENGINE", "s3")
 	t.Setenv("SQLX_ROOT", "")
-	t.Setenv("S3X_ROOT", t.TempDir())
+	t.Setenv("S3_ROOT", t.TempDir())
 	t.Setenv("SQLX_RUNTIME", t.TempDir())
 	ctx := context.Background()
 	if err := CreateDatabase(ctx, "app"); err != nil {
@@ -48,7 +48,7 @@ func TestObjectBackupSurvivesALostRuntimeCopy(t *testing.T) {
 func TestLocalCommitDoesNotPublishUntilTheBackup(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("SQLX_ENGINE", "s3")
-	t.Setenv("S3X_ROOT", root)
+	t.Setenv("S3_ROOT", root)
 	t.Setenv("SQLX_RUNTIME", t.TempDir())
 	ctx := context.Background()
 	if err := CreateDatabase(ctx, "app"); err != nil {
@@ -67,7 +67,7 @@ func TestLocalCommitDoesNotPublishUntilTheBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	snap := filepath.Join(t.TempDir(), "snap.sqlite")
-	if err := s3x.Get(ctx, s3x.DatabaseBucket, "app.sqlite", snap); err != nil {
+	if err := s3.Get(ctx, s3.DatabaseBucket, "app.sqlite", snap); err != nil {
 		t.Fatal(err)
 	}
 	got, err := store.QueryCSV(ctx, snap, "select name from item")
@@ -81,7 +81,7 @@ func TestLocalCommitDoesNotPublishUntilTheBackup(t *testing.T) {
 	if err := Exec(ctx, "app", "insert into item (name) values ('ignored')"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s3x.Get(ctx, s3x.DatabaseBucket, "app.sqlite", snap); err != nil {
+	if err := s3.Get(ctx, s3.DatabaseBucket, "app.sqlite", snap); err != nil {
 		t.Fatal(err)
 	}
 	got, err = store.QueryCSV(ctx, snap, "select name from item")
@@ -95,7 +95,7 @@ func TestLocalCommitDoesNotPublishUntilTheBackup(t *testing.T) {
 
 func TestFailedPublishRestoresTheRuntimeCopy(t *testing.T) {
 	t.Setenv("SQLX_ENGINE", "s3")
-	t.Setenv("S3X_ROOT", t.TempDir())
+	t.Setenv("S3_ROOT", t.TempDir())
 	t.Setenv("SQLX_RUNTIME", t.TempDir())
 	t.Setenv("SQLX_COMMIT", "")
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func TestFailedPublishRestoresTheRuntimeCopy(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("S3X_ROOT", blocked)
+	t.Setenv("S3_ROOT", blocked)
 	err := Exec(ctx, "app", "insert into item (name) values ('lost')")
 	if err == nil {
 		t.Fatal("publish succeeded")

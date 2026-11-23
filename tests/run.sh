@@ -51,8 +51,8 @@ grep -q 'ln -sfn nebula "$dest/auth"' install.sh && fail "install still links au
 work=$(mktemp -d)
 trap 'rm -rf "$work"; rm -f "$bin"' EXIT
 (
-  export S3X_ROOT=$work/s3
-  unset SQLX_ENGINE S3X_SSH || true
+  export S3_ROOT=$work/s3
+  unset SQLX_ENGINE S3_SSH || true
   file=$work/today.txt
   printf 'hello\n' > "$file"
   "$bin" s3 make bucket notes | grep -qx 'bucket notes'
@@ -79,7 +79,7 @@ sqlbin=$work/sql
 cp "$bin" "$sqlbin"
 chmod 0755 "$sqlbin"
 (
-  unset SQLX_ENGINE S3X_ROOT S3X_SSH || true
+  unset SQLX_ENGINE S3_ROOT S3_SSH || true
   export SQLX_ROOT=$work/root
   log=$work/gdrive.log
   fake=$work/gdrive

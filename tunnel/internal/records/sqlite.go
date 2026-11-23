@@ -1,13 +1,14 @@
 package records
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ryangerardwilson/nebula/internal/backup"
 )
 
 func get(db, app, kind, key string) ([]byte, bool, error) {
@@ -111,43 +112,23 @@ func sqliteRun(db, sql string, asJSON bool) (string, error) {
 	return stdout.String(), nil
 }
 
+// restoreObject asks nebula keep for a missing file. A cold SSH through the
+// tunnel takes up to about 6 s, so the wait allows that.
 func restoreObject(path string) error {
 	if os.Getenv("SQLX_ROOT") != "" {
 		return nil
 	}
-	bin, args, err := s3Args("get", "s3://backups/"+databaseName+".sqlite", path)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	return exec.CommandContext(ctx, bin, args...).Run()
+	k := backup.NewKeeper()
+	k.Timeout = 30 * time.Second
+	_, err := k.Restore(databaseName, path)
+	return err
 }
 
+// publishObject tells nebula keep the file changed. The copy follows in the
+// background; a write never waits on it.
 func publishObject(path string) {
 	if os.Getenv("SQLX_ROOT") != "" || path == "" {
 		return
 	}
-	bin, args, err := s3Args("put", path, "s3://backups/"+databaseName+".sqlite")
-	if err != nil {
-		return
-	}
-	go runS3(bin, args)
-}
-
-func runS3(bin string, args []string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_ = exec.CommandContext(ctx, bin, args...).Run()
-}
-
-func s3Args(action string, rest ...string) (string, []string, error) {
-	if bin, err := exec.LookPath("s3"); err == nil {
-		return bin, append([]string{action}, rest...), nil
-	}
-	bin, err := exec.LookPath("nebula")
-	if err != nil {
-		return "", nil, err
-	}
-	return bin, append([]string{"s3", action}, rest...), nil
+	_ = backup.NewKeeper().Mark(databaseName, path)
 }

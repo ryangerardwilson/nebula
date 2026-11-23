@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/ryangerardwilson/nebula/tunnel/internal/routes"
@@ -31,5 +32,29 @@ func TestAddRefusedNameIsNotSaved(t *testing.T) {
 	}
 	if _, _, err := Add(home, "lab", "0", nil, nil); err == nil {
 		t.Fatal("port 0 was accepted")
+	}
+}
+
+func TestConcurrentAddsKeepEveryRoute(t *testing.T) {
+	home := t.TempDir()
+	names := []string{"lab", "notes", "wiki", "docs", "chat", "blog"}
+	errs := make(chan error, len(names))
+	for i, name := range names {
+		go func() {
+			_, _, err := Add(home, name, strconv.Itoa(9000+i), nil, nil)
+			errs <- err
+		}()
+	}
+	for range names {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	file, err := routes.Load(routes.Path(home))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Routes) != len(names)+1 {
+		t.Fatalf("an add was lost: %+v", file.Routes)
 	}
 }

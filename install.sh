@@ -31,9 +31,14 @@ install_from_source() {
   fi
   cp "$checkout/nebula-sql-backup.service" "$unit_dir/nebula-sql-backup.service"
   cp "$checkout/nebula-sql-backup.timer" "$unit_dir/nebula-sql-backup.timer"
+  cp "$checkout/nebula-keep.service" "$unit_dir/nebula-keep.service"
+  cp "$checkout/nebula-keep.timer" "$unit_dir/nebula-keep.timer"
+  cp "$checkout/nebula-keep-flush.service" "$unit_dir/nebula-keep-flush.service"
   systemctl --user daemon-reload
   loginctl enable-linger "$USER" >/dev/null 2>&1 || true
   systemctl --user enable --now nebula-sql-backup.timer
+  systemctl --user enable --now nebula-keep.timer
+  systemctl --user enable --now nebula-keep-flush.service
 }
 
 if [ "$#" -eq 2 ] && [ "$1" = "from" ] && [ -d "$2" ]; then

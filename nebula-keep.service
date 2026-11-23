@@ -1,0 +1,7 @@
+[Unit]
+Description=Catch an application database whose change nebula keep missed
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/nebula keep sweep
+WorkingDirectory=%h

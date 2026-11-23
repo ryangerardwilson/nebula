@@ -1,4 +1,4 @@
-package s3x
+package s3
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 func TestStatReportsTimeAndSizeOnALocalRoot(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("S3X_ROOT", root)
+	t.Setenv("S3_ROOT", root)
 	ctx := context.Background()
 	if err := MakeBucket(ctx, "notes"); err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func TestStatReportsTimeAndSizeOnALocalRoot(t *testing.T) {
 }
 
 func TestStatMissingIsNotFound(t *testing.T) {
-	t.Setenv("S3X_ROOT", t.TempDir())
+	t.Setenv("S3_ROOT", t.TempDir())
 	ctx := context.Background()
 	if err := MakeBucket(ctx, "notes"); err != nil {
 		t.Fatal(err)

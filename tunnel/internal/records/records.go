@@ -1,6 +1,10 @@
 // Package records stores tunnel routes in the c3po sqlite file.
+//
+// Statute 2.2, 2.4, and 3.5: nebula writes record and meta inside a file c3po
+// owns. It stays until the routes move to nebula's own database, which needs
+// tunnel.service restarted on the new binary.
 // A path outside that production record stays a file, which is what tests use.
-// Writes publish the sqlite file with nebula s3. Reads do not.
+// Writes tell nebula keep the sqlite file changed; keep backs it up. Reads do not.
 package records
 
 import (
@@ -186,13 +190,19 @@ func prepare(path string) error {
 		return err
 	}
 	_ = os.Chmod(dir, 0o700)
+	// A missing file comes back through nebula keep. A failed restore is
+	// returned and makes no file, so an empty database never stands in for
+	// c3po's file and is never uploaded over its backup. The daemon exits
+	// and systemd starts it again once the backup is reachable.
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		_ = copyLegacy(path)
+		if err := restoreObject(path); err != nil {
+			return err
+		}
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		_ = restoreObject(path)
-	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if os.Getenv("SQLX_ROOT") == "" {
+			return fmt.Errorf("nebula keep restore %s: no file", databaseName)
+		}
 		if err := os.WriteFile(path, nil, 0o600); err != nil {
 			return err
 		}
@@ -201,23 +211,4 @@ func prepare(path string) error {
 		return err
 	}
 	return os.Chmod(path, 0o600)
-}
-
-func copyLegacy(path string) error {
-	if os.Getenv("SQLX_ROOT") != "" {
-		return nil
-	}
-	base := os.Getenv("XDG_RUNTIME_DIR")
-	if base == "" {
-		return nil
-	}
-	src := filepath.Join(base, "sqlx", databaseName+".sqlite")
-	if src == path {
-		return nil
-	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return nil
-	}
-	return os.WriteFile(path, data, 0o600)
 }

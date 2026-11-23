@@ -1,4 +1,4 @@
-package s3x
+package s3
 
 import (
 	"bytes"
@@ -40,14 +40,14 @@ func statLocal(root, bucket, key string) (time.Time, int64, error) {
 	return info.ModTime(), info.Size(), nil
 }
 
-// statSSH runs one remote stat on the path existsSSH tests. The format has
-// no space because the remote login shell splits the joined command.
+// statSSH runs one remote stat on the object path. The format has no space
+// because the remote login shell splits the joined command.
 func statSSH(ctx context.Context, bucket, key string) (time.Time, int64, error) {
 	host, err := sshHostName()
 	if err != nil {
 		return time.Time{}, 0, err
 	}
-	cmd, err := sshCommand(ctx, host, "stat", "-c", "%Y,%s", "--", remotePath(bucket, key))
+	cmd, err := sshCommand(ctx, host, pickObject(bucket, key)+" && stat -c %Y,%s -- \"$src\"")
 	if err != nil {
 		return time.Time{}, 0, err
 	}
@@ -58,7 +58,7 @@ func statSSH(ctx context.Context, bucket, key string) (time.Time, int64, error) 
 		if ctx.Err() != nil {
 			return time.Time{}, 0, ctx.Err()
 		}
-		if exitCode(err) == 1 && strings.Contains(stderr.String(), "No such file") {
+		if exitCode(err) == missingExit {
 			return time.Time{}, 0, fmt.Errorf("s3://%s/%s: %w", bucket, key, ErrNotFound)
 		}
 		return time.Time{}, 0, fmt.Errorf("s3 %s: %s", host, sshText(stderr.String(), err))

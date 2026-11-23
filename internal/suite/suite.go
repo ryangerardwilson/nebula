@@ -63,6 +63,11 @@ features:
   nebula s3 list s3://notes
   nebula s3 delete s3://notes/today.txt
 
+  keep a durable copy of an application sqlite file
+  # keep mark <name> <path> | keep restore <name> <path> | keep status [--json] | keep flush | keep sweep
+  nebula keep mark c3po /run/user/1000/c3po/c3po.sqlite
+  nebula keep status
+
   run a site on the SSH host
   # run <directory> | run list | run logs <name> | run rollback <name>
   nebula run ./site

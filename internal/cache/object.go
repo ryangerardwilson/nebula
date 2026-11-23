@@ -7,7 +7,7 @@ import (
 
 	"github.com/ryangerardwilson/nebula/internal/pg"
 	"github.com/ryangerardwilson/nebula/internal/store"
-	"github.com/ryangerardwilson/nebula/s3x"
+	"github.com/ryangerardwilson/nebula/s3"
 )
 
 // Publish uploads a consistent snapshot of the runtime sqlite to s3.
@@ -31,15 +31,12 @@ func Publish(ctx context.Context, name string) error {
 	if err := store.BackupFile(ctx, path, tmpName); err != nil {
 		return err
 	}
-	if err := s3x.MakeBucket(ctx, s3x.DatabaseBucket); err != nil {
-		return err
-	}
-	return s3x.Put(ctx, tmpName, s3x.DatabaseBucket, name+".sqlite")
+	return s3.PutMakingBucket(ctx, tmpName, s3.DatabaseBucket, name+".sqlite")
 }
 
 func openObject(ctx context.Context, name, path string) (string, error) {
 	key := name + ".sqlite"
-	ok, err := s3x.Exists(ctx, s3x.DatabaseBucket, key)
+	ok, err := s3.Exists(ctx, s3.DatabaseBucket, key)
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +44,7 @@ func openObject(ctx context.Context, name, path string) (string, error) {
 		return installObject(ctx, path, key)
 	}
 	// A local object root is the test store. It must not dial Postgres.
-	if os.Getenv("S3X_ROOT") != "" {
+	if s3.Local() {
 		return "", fmt.Errorf("database %s does not exist", name)
 	}
 	remote, err := pg.Exists(ctx, name)
@@ -72,7 +69,7 @@ func installObject(ctx context.Context, path, key string) (string, error) {
 	_ = os.Remove(path + "-wal")
 	_ = os.Remove(path + "-shm")
 	tmp := path + ".download"
-	if err := s3x.Get(ctx, s3x.DatabaseBucket, key, tmp); err != nil {
+	if err := s3.Get(ctx, s3.DatabaseBucket, key, tmp); err != nil {
 		_ = os.Remove(tmp)
 		return "", err
 	}

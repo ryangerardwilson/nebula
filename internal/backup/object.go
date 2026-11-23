@@ -10,14 +10,14 @@ import (
 	"github.com/ryangerardwilson/nebula/internal/agent"
 	"github.com/ryangerardwilson/nebula/internal/cache"
 	"github.com/ryangerardwilson/nebula/internal/layout"
-	"github.com/ryangerardwilson/nebula/s3x"
+	"github.com/ryangerardwilson/nebula/s3"
 )
 
 func runObject(ctx context.Context, out io.Writer) error {
-	if err := s3x.MakeBucket(ctx, s3x.DatabaseBucket); err != nil {
+	if err := s3.MakeBucket(ctx, s3.DatabaseBucket); err != nil {
 		return err
 	}
-	if err := s3x.MakeBucket(ctx, s3x.BackupBucket); err != nil {
+	if err := s3.MakeBucket(ctx, s3.BackupBucket); err != nil {
 		return err
 	}
 	names, err := agent.Names()
@@ -31,7 +31,7 @@ func runObject(ctx context.Context, out io.Writer) error {
 			return err
 		}
 		src := name + ".sqlite"
-		if err := s3x.Copy(ctx, s3x.DatabaseBucket, src, s3x.BackupBucket, day+"/"+src); err != nil {
+		if err := s3.Copy(ctx, s3.DatabaseBucket, src, s3.BackupBucket, day+"/"+src); err != nil {
 			return err
 		}
 	}
@@ -39,7 +39,7 @@ func runObject(ctx context.Context, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "backup s3://%s/%s\npruned %d\n", s3x.BackupBucket, day, pruned)
+	fmt.Fprintf(out, "backup s3://%s/%s\npruned %d\n", s3.BackupBucket, day, pruned)
 	return nil
 }
 
@@ -47,7 +47,7 @@ func ensureObject(ctx context.Context, name string) error {
 	if cache.Has(name) {
 		return cache.Publish(ctx, name)
 	}
-	ok, err := s3x.Exists(ctx, s3x.DatabaseBucket, name+".sqlite")
+	ok, err := s3.Exists(ctx, s3.DatabaseBucket, name+".sqlite")
 	if err != nil || ok {
 		return err
 	}
@@ -56,7 +56,7 @@ func ensureObject(ctx context.Context, name string) error {
 }
 
 func pruneObjectDays(ctx context.Context, today time.Time) (int, error) {
-	objects, err := s3x.List(ctx, s3x.BackupBucket, "")
+	objects, err := s3.List(ctx, s3.BackupBucket, "")
 	if err != nil {
 		return 0, err
 	}
@@ -71,7 +71,7 @@ func pruneObjectDays(ctx context.Context, today time.Time) (int, error) {
 		if !match || !expired {
 			continue
 		}
-		if err := s3x.Delete(ctx, s3x.BackupBucket, object.Key); err != nil {
+		if err := s3.Delete(ctx, s3.BackupBucket, object.Key); err != nil {
 			return pruned, err
 		}
 		pruned++

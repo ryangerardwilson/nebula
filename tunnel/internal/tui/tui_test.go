@@ -14,7 +14,7 @@ func TestViewListsRoute(t *testing.T) {
 		local: map[int]bool{
 			9090: true,
 		},
-		service: true,
+		svc: svcRunning,
 	}
 	view := m.View()
 	for _, want := range []string{"lab", "lab.ryangerardwilson.com", "9090", "up", "service running"} {
@@ -77,6 +77,7 @@ func TestAddModeTypesAndPreviews(t *testing.T) {
 }
 
 func TestConfirmRemovesRoute(t *testing.T) {
+	t.Setenv("C3PO_SQLX", "off")
 	home := t.TempDir()
 	file, _, err := routes.Upsert(routes.Default(routes.Zone), "lab", 9090)
 	if err != nil {
@@ -96,7 +97,13 @@ func TestConfirmRemovesRoute(t *testing.T) {
 		t.Fatal("n removed the route")
 	}
 	m.key("d")
-	m.key("y")
+	if m.key("y") != actRemove || m.portState(m.file.Routes[1]) != "removing" || len(m.file.Routes) != 2 {
+		t.Fatalf("intent\n%s", m.View())
+	}
+	w := startWorker()
+	defer w.stop()
+	w.push(removeJob(liveOps(nil, nil), home, m.confirm))
+	m.answer(<-w.results)
 	if m.notice != "removed lab" || len(m.file.Routes) != 1 || m.cursor != 0 {
 		t.Fatalf("remove %q %+v %d", m.notice, m.file, m.cursor)
 	}

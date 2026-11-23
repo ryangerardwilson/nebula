@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the nebula keep sweep every 10 minutes
+
+[Timer]
+OnActiveSec=10min
+OnUnitActiveSec=10min
+AccuracySec=5s
+Unit=nebula-keep.service
+
+[Install]
+WantedBy=timers.target

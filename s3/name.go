@@ -1,4 +1,4 @@
-package s3x
+package s3
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ const (
 	// BackupBucket holds dated copies of those snapshots.
 	BackupBucket = "sqlx-backups"
 	// RemoteRoot is the object store on the SSH host. It is not a public port.
-	RemoteRoot = "/var/lib/nebula/s3x"
+	RemoteRoot = "/var/lib/nebula/s3"
 )
 
 var (
@@ -42,7 +42,7 @@ func checkKey(key string) error {
 
 func checkHost(host string) error {
 	if !hostRE.MatchString(host) {
-		return fmt.Errorf("S3X_SSH is not a host name")
+		return fmt.Errorf("S3_SSH is not a host name")
 	}
 	return nil
 }

@@ -88,7 +88,7 @@ laptop tunnel. The hostname `run` publishes is the site origin. `crypt` is the
 1Password interface. There is no crypt screen. `r2d2 pass` reaches
 1Password through `nebula crypt`.
 There is no separate sqlx product. Env names
-`SQLX_*` and `S3X_*` stay. The runtime directory name is `sqlx`.
+`SQLX_*` stay. The object store env names are `S3_ROOT` and `S3_SSH`. The runtime directory name is `sqlx`.
 
 Do not add this module to the home `go.work`. Test with `GOWORK=off go test ./...`
 and `bash tests/run.sh`. Work and commit inside this Git root.

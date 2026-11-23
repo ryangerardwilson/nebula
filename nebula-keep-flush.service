@@ -1,0 +1,12 @@
+[Unit]
+Description=Upload every lagging application database before logout or shutdown
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=%h/.local/bin/nebula keep flush --timeout 20s
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=default.target

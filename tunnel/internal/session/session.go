@@ -6,6 +6,7 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -14,13 +15,20 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var idPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// c3poWait bounds one c3po __session call, so a stuck c3po cannot hold a
+// screen's session writer for good.
+const c3poWait = 10 * time.Second
+
 // runC3po runs c3po __session with args and returns its stdout.
 var runC3po = func(args ...string) ([]byte, error) {
-	cmd := exec.Command("c3po", append([]string{"__session"}, args...)...)
+	ctx, cancel := context.WithTimeout(context.Background(), c3poWait)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "c3po", append([]string{"__session"}, args...)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

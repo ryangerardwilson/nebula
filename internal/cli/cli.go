@@ -14,7 +14,7 @@ import (
 	"github.com/ryangerardwilson/nebula/internal/cache"
 	"github.com/ryangerardwilson/nebula/internal/engine"
 	"github.com/ryangerardwilson/nebula/internal/layout"
-	"github.com/ryangerardwilson/nebula/s3x"
+	"github.com/ryangerardwilson/nebula/s3"
 	"golang.org/x/term"
 )
 
@@ -350,7 +350,7 @@ func (a App) status() (string, error) {
 		}
 	}
 	if engine.Object() {
-		return fmt.Sprintf("host %s\nstore s3://%s\ncache %s\ndatabases %d\nbackup timer %s\n", engine.SSHHost(), s3x.DatabaseBucket, cache.Dir(), len(names), timer), nil
+		return fmt.Sprintf("host %s\nstore s3://%s\ncache %s\ndatabases %d\nbackup timer %s\n", engine.SSHHost(), s3.DatabaseBucket, cache.Dir(), len(names), timer), nil
 	}
 	if engine.Postgres() {
 		return fmt.Sprintf("host %s\ncache %s\ndatabases %d\nbackup timer %s\n", engine.SSHHost(), cache.Dir(), len(names), timer), nil
